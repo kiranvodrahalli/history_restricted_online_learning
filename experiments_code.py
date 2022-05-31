@@ -1,4 +1,4 @@
-# Experiments for NeurIPS Submission "History-Restricted Online Learning"
+# Experiments for arxiv.org/abs/2205.14519 "History-Restricted Online Learning"
 import numpy as np
 import math
 import random
