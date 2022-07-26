@@ -93,7 +93,6 @@ def avg_restart_HR_MW(rewards, eta, M):
 	return w, w_seq
 
 # avg restart (low-regret) T-history-restricted MW (not mean based)
-# this should be the same across history! currently isn't,wtf??
 def avg_restart_MW(rewards, eta, M=None):
 	T = len(rewards)
 	return avg_restart_HR_MW(rewards, eta, T)
