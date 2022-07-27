@@ -147,7 +147,9 @@ def FTLH(rewards, eta, M=None):
 		# to play
 		curr_w = np.zeros(d)
 		for expert in alive_set:
-			curr_w += alive_probs[expert]*alive_weights[expert]
+			curr_experts_weights = alive_weights[expert]
+			curr_experts_weights /= sum(curr_experts_weights)
+			curr_w += alive_probs[expert]*curr_experts_weights
 		w_seq.append(deepcopy(curr_w))
 		# prune
 		to_delete = []
@@ -167,7 +169,9 @@ def FTLH(rewards, eta, M=None):
 		# update alive_probs
 		scores = dict()
 		for expert in alive_set:
-			expert_loss = np.dot(r_t, alive_weights[expert]) # do we update experts before or after? check
+			curr_experts_weights = alive_weights[expert]
+			curr_experts_weights /= sum(curr_experts_weights)
+			expert_loss = np.dot(r_t, curr_experts_weights) # do we update experts before or after? check
 			scores[expert] = alive_probs[expert]*np.exp(-1*eta*expert_loss)
 		Z = sum(scores)
 		for expert in alive_set:
