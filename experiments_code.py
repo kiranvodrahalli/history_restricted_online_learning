@@ -115,6 +115,77 @@ def FTL(rewards, eta, M=None):
 	return w, w_seq
 
 
+def get_powers_of_two(n):
+	count = 0
+	while n%2 == 0:
+		n = n//2
+		count += 1
+	return count
+
+# as defined in https://icml.cc/Conferences/2009/papers/75.pdf 
+# ("base 2", could look at a "base K" variant later)
+def get_lifetime(n):
+	k = get_powers_of_two(n)
+	return 2**(k + 2) + 1
+
+# Follow-the-Leading-History from Hazan and Seshadhri
+# https://icml.cc/Conferences/2009/papers/75.pdf 
+# https://www.cs.princeton.edu/techreports/2007/798.pdf
+def FTLH(rewards, eta, M=None):
+	T = len(rewards)
+	d = len(rewards[0])
+	w = np.ones(d)/d
+	alive_set = set()
+	alive_set.add(1)
+	alive_weights = dict()
+	alive_weights[1] = w
+	alive_probs = dict()
+	alive_probs[1] = 1
+	w_seq = []
+	for t in range(T):
+		r_t = rewards[t]
+		# to play
+		curr_w = np.zeros(d)
+		for expert in alive_set:
+			curr_w += alive_probs[expert]*alive_weights[expert]
+		w_seq.append(deepcopy(curr_w))
+		# prune
+		to_delete = []
+		for index in alive_set:
+			m = get_lifetime(index)
+			if t == index + m:
+				# remove
+				to_delete.append(index)
+				del alive_weights[index]
+				del alive_probs[index]
+		for index in to_delete:
+			alive_set.remove(index)
+		# add new expert
+		alive_set.add(t+1)
+		alive_weights[t+1] = np.ones(d)/d
+		alive_probs[t+1] = 0
+		# update alive_probs
+		scores = dict()
+		for expert in alive_set:
+			expert_loss = np.dot(r_t, alive_weights[expert]) # do we update experts before or after? check
+			scores[expert] = alive_probs[expert]*np.exp(-1*eta*expert_loss)
+		Z = sum(scores)
+		for expert in alive_set:
+			if expert != t + 1:
+				alive_probs[expert] = (1 - (1/(t+1)))*scores[expert]/Z
+			else:
+				alive_probs[expert] = 1/(t + 1)
+
+
+		# MW update for each alive expert:
+		for expert in alive_set:
+			w = alive_weights[expert]
+			for i in range(d):
+				w[i] = w[i]*(1 + eta*r_t[i])
+			alive_weights[expert] = w
+
+	return curr_w, w_seq
+
 
 ##### Evaluation Methods
 
@@ -384,7 +455,7 @@ def compare_algs_avg_runs(M, num_runs=3, eta=0.5, T=T, rewards_list=REWARDS_LIST
 
 
 
-ALG_LIST = [("MW", MW), ("History-Restricted Mean-Based MW", smooth_HR_MW), ("Periodic Restart History-Restricted MW", restart_HR_MW), ("Average Restart History-Restricted MW", avg_restart_HR_MW), ("Full-Horizon Average Restart MW", avg_restart_MW)]
+ALG_LIST = [("Follow-the-Leading-History", FTLH), ("MW", MW), ("History-Restricted Mean-Based MW", smooth_HR_MW), ("Periodic Restart History-Restricted MW", restart_HR_MW), ("Average Restart History-Restricted MW", avg_restart_HR_MW), ("Full-Horizon Average Restart MW", avg_restart_MW)]
 NEW_ALG_LIST = ALG_LIST
 all_frequencies = [0.05, 0.1, 0.15, 0.2, 0.25, 0.4, 0.5, 0.6, 0.8, 1, 2]
 random_walk_stddevs = [0.0001, 0.001, 0.01, 0.02] # [0.01, 0.05, 0.1, 0.2] -- too large
